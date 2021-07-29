@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">SleepCounter</string>
+    <string name="title_home">Home</string>
+    <string name="title_history">History</string>
+    <string name="title_stats">Statistics</string>
+    <string name="delete">Delete</string>
+    <string name="Duration">Duration</string>
+    <string name="Bed_Time">Bed Time</string>
+</resources>
