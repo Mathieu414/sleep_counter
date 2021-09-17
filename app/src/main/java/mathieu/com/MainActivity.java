@@ -1,5 +1,6 @@
 package mathieu.com;
 
+import android.annotation.SuppressLint;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.ContentResolver;
@@ -16,7 +17,11 @@ import android.widget.TimePicker;
 import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.datepicker.MaterialPickerOnPositiveButtonClickListener;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.timepicker.MaterialTimePicker;
+import com.google.android.material.timepicker.TimeFormat;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -28,6 +33,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
@@ -124,10 +130,60 @@ public class MainActivity<state> extends AppCompatActivity {
     }
 
     public void showTimePickerDialog(View v) {
-        DialogFragment newFragment = new DatePickerFragment(DatePickerListener);
-        newFragment.show(getSupportFragmentManager(), "timePicker");
+        //using the material components date picker
+        final MaterialDatePicker materialDatePicker = MaterialDatePicker.Builder.datePicker()
+                .setTitleText("Select the date of the night")
+                .build();
+
+        materialDatePicker.show(getSupportFragmentManager(), "datePicker");
+        materialDatePicker.addOnPositiveButtonClickListener(
+            new MaterialPickerOnPositiveButtonClickListener() {
+                @SuppressLint("SetTextI18n")
+                @Override
+                public void onPositiveButtonClick(Object selection) {
+                    long selecUnixTime =(long) materialDatePicker.getSelection();
+
+                    Log.d(TAG, "Material selection" + selecUnixTime);
+                    final Calendar c = Calendar.getInstance();
+                    c.setTimeInMillis(selecUnixTime);
+                    int year = c.get(Calendar.YEAR);
+                    int month = c.get(Calendar.MONTH)+1;
+                    int day = c.get(Calendar.DAY_OF_MONTH);
+
+                    if(checkPermission()) {
+                        //Check if there is not already an entry corresponding to the date entered
+                        File path = new File(Environment.getExternalStorageDirectory()+File.separator+"SleepData"+File.separator+"Data.txt");
+                        Boolean b = true;
+                        try {
+                            Scanner myReader = new Scanner(path);
+                            while (myReader.hasNextLine()) {
+                                String data = myReader.nextLine();
+                                List<String> dataList = Arrays.asList(data.split("\\s+"));
+                                String test = year +"_"+month +"_"+ day;
+                                if(dataList.get(0).equals(test)){
+                                    b = false;
+                                }
+                            }
+                            myReader.close();
+                        } catch (FileNotFoundException e) {
+                            System.out.println("An error occurred.");
+                            e.printStackTrace();
+                        }
+                        if(b){
+                            content = year +"_"+month +"_"+ day + "\t";
+                            showMaterialTimePicker1();
+                            //DialogFragment newFragment2 = new TimePickerFragment(timePickerListener1);
+                            //newFragment2.show(getSupportFragmentManager(), "timePicker2");
+                        }else{
+                            Toast.makeText(MainActivity.this, "The date has already a night", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                }
+            });
     }
 
+    /*
+    //Old version of the datepicker, now implemented with MaterialComponents
     DatePickerDialog.OnDateSetListener DatePickerListener = new DatePickerDialog.OnDateSetListener() {
         @Override
         public void onDateSet(DatePicker view, int year, int month, int day) {
@@ -160,6 +216,105 @@ public class MainActivity<state> extends AppCompatActivity {
             }
         }
     };
+     */
+    public void showMaterialTimePicker1(){
+        final MaterialTimePicker picker =
+                new MaterialTimePicker.Builder()
+                        .setTimeFormat(TimeFormat.CLOCK_24H)
+                        .setHour(23)
+                        .setMinute(00)
+                        .setTitleText("Select bed-time")
+                        .setInputMode(MaterialTimePicker.INPUT_MODE_KEYBOARD)
+                        .build();
+        picker.addOnPositiveButtonClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if(checkPermission()) {
+                            bedTimeHour = picker.getHour();
+                            bedTimeMinutes = picker.getMinute();
+                            if(Integer.toString(bedTimeMinutes).length()==1 & Integer.toString(bedTimeHour).length()==1){
+                                content = content + "0" + bedTimeHour + "\t0" + bedTimeMinutes + "\t";
+                            }
+                            if (Integer.toString(bedTimeMinutes).length()==1 & Integer.toString(bedTimeHour).length()==2){
+                                content = content + bedTimeHour + "\t0" + bedTimeMinutes + "\t";
+                            }
+                            if (Integer.toString(bedTimeMinutes).length()==2 & Integer.toString(bedTimeHour).length()==1){
+                                content = content + "0" + bedTimeHour + "\t" + bedTimeMinutes + "\t";
+                            }
+                            if (Integer.toString(bedTimeMinutes).length()==2 & Integer.toString(bedTimeHour).length()==2){
+                                content = content + bedTimeHour + "\t" + bedTimeMinutes + "\t";
+                            }
+                            showMaterialTimePicker2();
+                            //DialogFragment newFragment3 = new TimePickerFragment2(timePickerListener2);
+                            //newFragment3.show(getSupportFragmentManager(), "timePicker3");
+                        }
+                    }
+                }
+        );
+        picker.show(getSupportFragmentManager(), "timePicker1");
+    }
+
+    public void showMaterialTimePicker2(){
+        final MaterialTimePicker picker =
+                new MaterialTimePicker.Builder()
+                        .setTimeFormat(TimeFormat.CLOCK_24H)
+                        .setHour(8)
+                        .setMinute(00)
+                        .setTitleText("Select wake-up time")
+                        .setInputMode(MaterialTimePicker.INPUT_MODE_KEYBOARD)
+                        .build();
+        picker.addOnPositiveButtonClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if(checkPermission()) {
+                            int wakeUpHour = picker.getHour();
+                            int wakeUpMinutes = picker.getMinute();
+                            int nightLengthHour;
+                            //first calculate the amount of minutes for the duration of the night
+                            int nightLengthMinutes = (60-bedTimeMinutes)+wakeUpMinutes;
+                            //then dissociate the cases : 1st when the bedTimeHour is before
+                            // midnight (so after midday), 2nd when it is before midday
+                            // (so after midnight)
+                            if(bedTimeHour>12){
+                                nightLengthHour = (24-bedTimeHour)+wakeUpHour;
+                            }else{
+                                nightLengthHour = wakeUpHour-bedTimeHour-1;
+                            }
+                            if(nightLengthMinutes>=60){
+                                nightLengthHour++;
+                                nightLengthMinutes = nightLengthMinutes-60;
+                            }
+                            if(Integer.toString(nightLengthMinutes).length()==1
+                                    & Integer.toString(nightLengthHour).length()==1){
+                                content = content + "0" + nightLengthHour + "\t0"
+                                        + nightLengthMinutes + "\t";
+                            }
+                            if (Integer.toString(nightLengthMinutes).length()==1
+                                    & Integer.toString(nightLengthHour).length()==2){
+                                content = content + nightLengthHour + "\t0"
+                                        + nightLengthMinutes + "\t";
+                            }
+                            if (Integer.toString(nightLengthMinutes).length()==2
+                                    & Integer.toString(nightLengthHour).length()==1){
+                                content = content + "0" + nightLengthHour + "\t"
+                                        + nightLengthMinutes + "\t";
+                            }
+                            if (Integer.toString(nightLengthMinutes).length()==2
+                                    & Integer.toString(nightLengthHour).length()==2){
+                                content = content + nightLengthHour + "\t"
+                                        + nightLengthMinutes + "\t";
+                            }
+                            WriteFile(fileName, content);
+                        }
+                    }
+                }
+        );
+        picker.show(getSupportFragmentManager(), "timePicker2");
+    }
+
+/* Old version of time Pickers
 
     TimePickerDialog.OnTimeSetListener timePickerListener1 = new TimePickerDialog.OnTimeSetListener() {
         @Override
@@ -184,6 +339,7 @@ public class MainActivity<state> extends AppCompatActivity {
             newFragment3.show(getSupportFragmentManager(), "timePicker3");
         }
     };
+
 
     TimePickerDialog.OnTimeSetListener timePickerListener2 = new TimePickerDialog.OnTimeSetListener() {
         @Override
@@ -218,6 +374,8 @@ public class MainActivity<state> extends AppCompatActivity {
             }
         }
     };
+
+*/
 
     /**
      * Writes into a file given in parameter in the position corresponding to the date -> creates an

@@ -1,27 +1,45 @@
 package mathieu.com.ui.notifications;
 
+import android.content.Intent;
+import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.renderscript.Sampler;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 
-
-import com.anychart.AnyChart;
-import com.anychart.AnyChartView;
-import com.anychart.chart.common.dataentry.DataEntry;
-import com.anychart.chart.common.dataentry.ValueDataEntry;
-import com.anychart.charts.Cartesian;
-import com.anychart.charts.Pie;
-import com.anychart.core.cartesian.series.Column;
-import com.anychart.core.cartesian.series.Line;
-import com.anychart.data.Mapping;
-import com.anychart.data.Set;
-import com.anychart.enums.Orientation;
-import com.anychart.enums.ScaleStackMode;
-import com.anychart.scales.DateTime;
-import com.anychart.scales.Linear;
+import com.github.mikephil.charting.charts.CombinedChart;
+import com.github.mikephil.charting.charts.CombinedChart.DrawOrder;
+import com.github.mikephil.charting.components.AxisBase;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.XAxis.XAxisPosition;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.data.BubbleData;
+import com.github.mikephil.charting.data.BubbleDataSet;
+import com.github.mikephil.charting.data.BubbleEntry;
+import com.github.mikephil.charting.data.CandleData;
+import com.github.mikephil.charting.data.CandleDataSet;
+import com.github.mikephil.charting.data.CandleEntry;
+import com.github.mikephil.charting.data.CombinedData;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.data.ScatterData;
+import com.github.mikephil.charting.data.ScatterDataSet;
+import com.github.mikephil.charting.formatter.IAxisValueFormatter;
+import com.github.mikephil.charting.formatter.ValueFormatter;
+import com.github.mikephil.charting.interfaces.datasets.IDataSet;
+import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -33,110 +51,131 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 import mathieu.com.R;
-import mathieu.com.ui.dashboard.HistoryAdapter;
-
-import static java.lang.String.format;
 
 public class StatsFragment extends Fragment {
 
-    private NotificationsViewModel notificationsViewModel;
-    private static final String TAG = HistoryAdapter.class.getSimpleName();
+    private CombinedChart chart;
+
+    private static final String TAG = StatsFragment.class.getSimpleName();
 
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
+
         View root = inflater.inflate(R.layout.fragment_stats, container, false);
 
-        AnyChartView anyChartView = root.findViewById(R.id.any_chart_view);
-        anyChartView.setProgressBar(root.findViewById(R.id.progress_bar));
+        chart = root.findViewById(R.id.chart1);
+        chart.getDescription().setEnabled(false);
+        chart.setDrawGridBackground(false);
+        chart.setDrawBarShadow(false);
+        chart.setHighlightFullBarEnabled(false);
 
-        Cartesian cartesian = AnyChart.cartesian();
-
-        cartesian.animation(true);
-
-
-        cartesian.title("Combination of Stacked Column and Line Chart (Dual Y-Axis)");
-
-        cartesian.yScale().stackMode(ScaleStackMode.VALUE);
-
-        SimpleDateFormat sdFormat = new SimpleDateFormat("HHmm");
-        Date dateMinimum;
-        Date dateMaximum;
-        Date dateMaximum2;
-        long minimum = 0;
-        long maximum = 0;
-        long maximum2 = 0;
-        try {
-            dateMinimum = sdFormat.parse("0000");
-            Calendar calMinimum = Calendar.getInstance();
-            calMinimum.setTime(dateMinimum);
-            minimum = calMinimum.getTimeInMillis();
-
-            dateMaximum = sdFormat.parse("2000");
-            Calendar calMaximum = Calendar.getInstance();
-            calMaximum.setTime(dateMaximum);
-            calMaximum.add(Calendar.DAY_OF_MONTH,1);
-            maximum = calMaximum.getTimeInMillis();
-
-            dateMaximum2 = sdFormat.parse("1400");
-            Calendar calMaximum2 = Calendar.getInstance();
-            calMaximum2.setTime(dateMaximum2);
-            maximum2 = calMaximum2.getTimeInMillis();
-
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
+        // draw bars behind lines
+        chart.setDrawOrder(new DrawOrder[]{
+                DrawOrder.BAR, DrawOrder.LINE
+        });
 
 
-        Linear scalesDateline = Linear.instantiate();
-        scalesDateline.minimum(minimum);
-        Log.d(TAG, "Minimum" + minimum);
-        scalesDateline.maximum(maximum);
-        Log.d(TAG, "Maximum" + maximum);
-
-        Linear scalesDateColumn = Linear.instantiate();
-        scalesDateColumn.minimum(minimum);
-        Log.d(TAG, "Minimum" + minimum);
-        scalesDateColumn.maximum(maximum2);
-        Log.d(TAG, "Maximum" + maximum2);
-        //scalesDate.ticks("{ interval: 20 }");
+        Legend l = chart.getLegend();
+        l.setWordWrapEnabled(true);
+        l.setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
+        l.setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
+        l.setOrientation(Legend.LegendOrientation.HORIZONTAL);
+        l.setDrawInside(false);
 
 
-        List<DataEntry> data = dataGen();
+        ValueFormatter myFormatter1 = new ValueFormatter() {
+            private final SimpleDateFormat mFormat = new SimpleDateFormat("dd/MM");
 
-        Set set = Set.instantiate();
-        set.data(data);
-        Mapping lineData = set.mapAs("{ x: 'x', value: 'value' }");
-        Mapping column1Data = set.mapAs("{ x: 'x', value: 'value2' }");
+            @Override
+            public String getAxisLabel(float value, AxisBase axis) {
 
-        Column column = cartesian.column(column1Data);
-        cartesian.crosshair(true);
-        column.yScale(scalesDateColumn);
-        column.tooltip().format("{%Value}{type:time}");
+                long millis = TimeUnit.DAYS.toMillis((long) value);
+                return mFormat.format(new Date(millis));
+            }
 
+        };
 
-        Line line = cartesian.line(lineData);
-        line.yScale(scalesDateline);
+        ValueFormatter myFormatter2 = new ValueFormatter() {
+            private final SimpleDateFormat mFormat = new SimpleDateFormat("HH:mm");
 
-        //cartesian.tooltip().format("{%Value}{type:number}");
+            @Override
+            public String getAxisLabel(float value, AxisBase axis) {
 
-        anyChartView.setChart(cartesian);
+                long millis = TimeUnit.MINUTES.toMillis((long) value);
+                return mFormat.format(new Date(millis));
+            }
+
+            @Override
+            public String getPointLabel(Entry entry){
+
+                long millis = TimeUnit.MINUTES.toMillis((long) entry.getY());
+                return mFormat.format(new Date(millis));
+            }
+
+            @Override
+            public String getBarLabel(BarEntry entry){
+
+                long millis = TimeUnit.MINUTES.toMillis((long) entry.getY());
+                return mFormat.format(new Date(millis));
+            }
+
+        };
+
+        YAxis rightAxis = chart.getAxisRight();
+        rightAxis.setDrawGridLines(false);
+        rightAxis.setLabelCount(7);
+        rightAxis.setValueFormatter(myFormatter2);
+
+        YAxis leftAxis = chart.getAxisLeft();
+        leftAxis.setDrawGridLines(false);
+        leftAxis.setLabelCount(7);
+        leftAxis.setValueFormatter(myFormatter2);
+
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setPosition(XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setValueFormatter(myFormatter1);
+
+        CombinedData data = new CombinedData();
+
+        ArrayList<Object> genData = generateData();
+        LineData lData = (LineData) genData.get(0);
+        lData.setValueFormatter(myFormatter2);
+        BarData bData = (BarData) genData.get(1);
+        bData.setValueFormatter(myFormatter2);
+
+        data.setData(lData);
+        data.setData(bData);
+
+        leftAxis.setAxisMinimum(lData.getYMin()-200);
+        leftAxis.setAxisMaximum(lData.getYMax() + 60);
+        rightAxis.setAxisMinimum(bData.getYMin()-60);
+        rightAxis.setAxisMaximum(bData.getYMax()+60);
+        xAxis.setAxisMaximum(data.getXMax() + 1f);
+        xAxis.setAxisMinimum(data.getXMin() - 1f);
+
+        chart.setData(data);
+        chart.invalidate();
 
         return root;
-    }
-
-    private class CustomDataEntry extends ValueDataEntry {
-        CustomDataEntry(String x, Number value, Number value2) {
-            super(x,value);
-            setValue("value2", value2);
         }
-    }
 
-    public List<DataEntry> dataGen(){
-        List<DataEntry> data = new ArrayList<>();
+
+    private ArrayList<Object> generateData() {
+
+        LineData lineData = new LineData();
+
+        ArrayList<Entry> entries = new ArrayList<>();
+        ArrayList<BarEntry> entriesBar = new ArrayList<>();
+
         File path = new File(Environment.getExternalStorageDirectory()+File.separator+"SleepData"+File.separator+"Data.txt");
         try {
             Scanner myReader = new Scanner(path);
@@ -150,6 +189,11 @@ public class StatsFragment extends Fragment {
                 String stringHour2 = dataStringList.get(3) + dataStringList.get(4);
 
                 SimpleDateFormat sdFormat = new SimpleDateFormat("HHmm");
+                SimpleDateFormat sdFormat2 = new SimpleDateFormat("yyyy_MM_dd");
+
+                Date entryDate = sdFormat2.parse(stringDate);
+                Calendar calEntryDate = Calendar.getInstance();
+                calEntryDate.setTime(entryDate);
 
                 Date bedTimeHour = sdFormat.parse(stringHour1);
                 Calendar calBedTimeHour = Calendar.getInstance();
@@ -168,11 +212,18 @@ public class StatsFragment extends Fragment {
 
                 long unixBedTimeHour = calBedTimeHour.getTimeInMillis();
                 long unixSleepTime = calSleepTime.getTimeInMillis();
+                long unixEntryDate = calEntryDate.getTimeInMillis();
                 Log.d(TAG, "unixBedTimeHour" + unixBedTimeHour);
                 Log.d(TAG, "unixSleepTime" + unixSleepTime);
+                Log.d(TAG, "unixEntryDate" + unixEntryDate);
+
+                float entryDateDays = TimeUnit.MILLISECONDS.toDays(unixEntryDate);
+                float unixBTHour = TimeUnit.MILLISECONDS.toMinutes(unixBedTimeHour);
+                float unixSTHour = TimeUnit.MILLISECONDS.toMinutes(unixSleepTime);
 
 
-                data.add(new CustomDataEntry(stringDate, unixBedTimeHour, unixSleepTime));
+                entries.add(0,new Entry(entryDateDays, unixBTHour));
+                entriesBar.add(0,new BarEntry(entryDateDays, unixSTHour));
                 i ++;
 
             }
@@ -181,6 +232,36 @@ public class StatsFragment extends Fragment {
             System.out.println("An error occurred.");
             e.printStackTrace();
         }
-        return data;
+
+        Log.d(TAG, "entriesBar" + entriesBar);
+        Log.d(TAG, "entries" + entries);
+
+        BarDataSet set1 = new BarDataSet(entriesBar, "Time of sleep");
+        set1.setColor(ContextCompat.getColor(getContext(),R.color.primaryDarkColor));
+        set1.setValueTextColor(ContextCompat.getColor(getContext(),R.color.secondaryTextColor));
+        set1.setValueTextSize(10f);
+        set1.setAxisDependency(YAxis.AxisDependency.RIGHT);
+
+        LineDataSet set = new LineDataSet(entries, "Evening bed time");
+        set.setColor(ContextCompat.getColor(getContext(),R.color.secondaryColor));
+        set.setLineWidth(2.5f);
+        set.setCircleColor(ContextCompat.getColor(getContext(),R.color.secondaryColor));
+        set.setCircleRadius(5f);
+        set.setFillColor(ContextCompat.getColor(getContext(),R.color.secondaryColor));
+        set.setMode(LineDataSet.Mode.LINEAR);
+        set.setDrawValues(false);
+        set.setValueTextSize(10f);
+        set.setAxisDependency(YAxis.AxisDependency.LEFT);
+        //set.setValueTextColor(Color.rgb(0, 0, 0));
+        lineData.addDataSet(set);
+
+        BarData barData = new BarData(set1);
+
+        ArrayList<Object> res = new ArrayList<>();
+
+        res.add(lineData);
+        res.add(barData);
+
+        return res;
     }
 }
